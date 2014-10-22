@@ -1,4 +1,4 @@
-# adds to http://www.links.org/files/RevocationTransparency.pdf
+# extends http://www.links.org/files/RevocationTransparency.pdf
 
 from hashlib import sha256
 from bisect import bisect_left
