@@ -1,4 +1,19 @@
 # extends http://www.links.org/files/RevocationTransparency.pdf
+# usage:
+# 
+# construct
+# builds an smt and returns the root, given a requested tree size
+# and a list of (number, stringable) tuples
+#
+# proof
+# returns a list of (hash, (start, finish)) tuples that can be
+# used to reconstruct the tree's root, given a list of tuples
+# and an index into the list indicating the (k,v) pair in question.
+# empty subtrees are not indicated, since they can be easily inferred
+#
+# check_proof
+# given the outputs of proof and a (k,v) pair, determine the root
+# of the smt
 
 from hashlib import sha256
 from bisect import bisect_left
@@ -33,8 +48,9 @@ def helper(n, l, lo, hi, offset, v):
         return HStarEmpty(n)
     split = (1 << (n - 1)) + offset # 2^(n-1) + offset
     i = bisect_left(l, split, lo, hi) # where should we insert 'split'
-    return Hash(helper(n - 1, l, lo, i, offset, v) + \
-                helper(n - 1, l, i, hi, split, v))
+    left = helper(n - 1, l, lo, i, offset, v)
+    right = helper(n - 1, l, i, hi, split, v)
+    return Hash(left + right)
 
 # construct a tree using a list l of (index, value) pairs
 # return the root
@@ -45,9 +61,27 @@ def construct(n, l):
     two_lists = [list(t) for t in zip(*l)]
     return helper(n, two_lists[0], 0, len(l), 0, two_lists[1])
 
+def proof_helper(n, l, lo, hi, offset, v, path_from_leaf):
+    t = hi - lo
+    if n == 0:
+        if t == 0:
+            return '0'
+        assert t == 1
+        return str(v[lo])
+    if t == 0:
+        return HStarEmpty(n)
+    split = (1 << (n - 1)) + offset # 2^(n-1) + offset
+    i = bisect_left(l, split, lo, hi) # where should we insert 'split'
+    left = helper(n - 1, l, lo, i, offset, v, path_from_leaf)
+    right = helper(n - 1, l, i, hi, split, v, path_from_leaf)
+    return Hash(left + right)
+
 # 
 def proof(key, root, l):
-
+    l.sort() # sorts by first value of pair
+    two_lists = [list(t) for t in zip(*l)]
+    root = helper(n, two_lists[0], 0, len(l), 0, two_lists[1])
+    
 
 def insert(tree, k, v):
     return 0
