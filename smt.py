@@ -7,13 +7,13 @@
 #
 # proof
 # returns a list of (hash, (start, finish)) tuples that can be
-# used to reconstruct the tree's root, given a list of tuples
-# and an index into the list indicating the (k,v) pair in question.
-# empty subtrees are not indicated, since they can be easily inferred
+# used to reconstruct the tree's root, given a list of tuples, tree size,
+# and a (k,v) in the list. empty subtrees are not indicated, since they
+# can be easily inferred
 #
 # check_proof
-# given the outputs of proof and a (k,v) pair, determine the root
-# of the smt
+# given the outputs of proof, tree size, and a (k,v) pair, determine
+# the root of the smt
 
 from hashlib import sha256
 from bisect import bisect_left
@@ -37,19 +37,29 @@ def HStarEmpty(n):
         hStarEmptyCache.append(t)
     return hStarEmptyCache[n]
 
-def helper(n, l, lo, hi, offset, v):
+def helper(n, l, lo, hi, offset, v, results=None, k=None):
     t = hi - lo
     if n == 0:
         if t == 0:
-            return '0'
+            return []
         assert t == 1
-        return str(v[lo])
+        return Hash(str(v[lo]))
     if t == 0:
-        return HStarEmpty(n)
+        return []
     split = (1 << (n - 1)) + offset # 2^(n-1) + offset
     i = bisect_left(l, split, lo, hi) # where should we insert 'split'
-    left = helper(n - 1, l, lo, i, offset, v)
-    right = helper(n - 1, l, i, hi, split, v)
+    left = helper(n - 1, l, lo, i, offset, v, results)
+    right = helper(n - 1, l, i, hi, split, v, results)
+    # if we also want a proof, we will have the extra args
+    if results and k:
+        # if one subtree contains k, append the other to the results
+        to_append = None
+        if lo <= k and k < i: # k in left
+            to_append = right
+        else if i <= k and k < hi:
+            to_append = left
+        if to_append:
+            results.append(to_append)
     return Hash(left + right)
 
 # construct a tree using a list l of (index, value) pairs
@@ -61,36 +71,22 @@ def construct(n, l):
     two_lists = [list(t) for t in zip(*l)]
     return helper(n, two_lists[0], 0, len(l), 0, two_lists[1])
 
-def proof_helper(n, l, lo, hi, offset, v, path_from_leaf):
-    t = hi - lo
-    if n == 0:
-        if t == 0:
-            return '0'
-        assert t == 1
-        return str(v[lo])
-    if t == 0:
-        return HStarEmpty(n)
-    split = (1 << (n - 1)) + offset # 2^(n-1) + offset
-    i = bisect_left(l, split, lo, hi) # where should we insert 'split'
-    left = helper(n - 1, l, lo, i, offset, v, path_from_leaf)
-    right = helper(n - 1, l, i, hi, split, v, path_from_leaf)
-    return Hash(left + right)
-
-# 
-def proof(key, root, l):
+# currently returns all 256 hashes. some of these will be the hash of
+# empty subtrees - this can be optimized for storage/transmission
+def proof(l, n, k):
     l.sort() # sorts by first value of pair
     two_lists = [list(t) for t in zip(*l)]
-    root = helper(n, two_lists[0], 0, len(l), 0, two_lists[1])
-    
+    if k not in two_lists[0]:
+        return None
+    results = []
+    root = helper(n, two_lists[0], 0, len(l), 0, two_lists[1], results, k)
+    return results
 
-def insert(tree, k, v):
-    return 0
+def root_from_proof(k, v, n, proof_output):
 
-def remove(tree, k, v):
-    return 0
-
-def empty_tree(n):
-    return HStarEmpty(n)
+def check_proof_against_root(k, v, n, proof_output, root):
+    new_root = root_from_proof(k, v, n, proof_output)
+    return new_root == root
 
 usernames = ["ohemorange", "joebonneau", "edfelten", "bcrypt"]
 hashed_usernames = [hex_to_int(Hash(user)) for user in usernames]
