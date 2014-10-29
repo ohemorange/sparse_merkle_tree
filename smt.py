@@ -100,16 +100,6 @@ def root_from_proof(k, v, n, proof_output):
         k1 /= 2 # this will probably break in python 3...
     return output
 
-# this doesn't belong in this library
-def check_proof_against_root(k, v, n, proof_output, root):
-    new_root = root_from_proof(k, v, n, proof_output)
-    return new_root == root
-
-# neither does this
-def audit_smt(l, n, k, v, prev_root):
-    proof_output = proof(l, n, k)
-    return check_proof_against_root(k, v, n, proof_output, prev_root)
-
 def big_examples():
     usernames = ["ohemorange", "joebonneau", "edfelten", "bcrypt"]
     hashed_usernames = [hex_to_int(Hash(user)) for user in usernames]
@@ -143,7 +133,7 @@ def test_proof():
     assert proof_output[1] == Hash(HStarEmpty(0)+Hash("b"))
     assert proof_output[2] == Hash(HStarEmpty(1)+Hash(HStarEmpty(0)+Hash("c")))
 
-# not passing
+# passing
 def test_root_from_proof():
     keys = [3,1,7]
     vals = ["a", "b", "c"]
