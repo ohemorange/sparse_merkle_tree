@@ -41,11 +41,11 @@ def helper(n, l, lo, hi, offset, v, results=None, k=None):
     t = hi - lo
     if n == 0:
         if t == 0:
-            return []
+            return '0'
         assert t == 1
         return Hash(str(v[lo]))
     if t == 0:
-        return []
+        return HStarEmpty(n)
     split = (1 << (n - 1)) + offset # 2^(n-1) + offset
     i = bisect_left(l, split, lo, hi) # where should we insert 'split'
     left = helper(n - 1, l, lo, i, offset, v, results)
@@ -56,7 +56,7 @@ def helper(n, l, lo, hi, offset, v, results=None, k=None):
         to_append = None
         if lo <= k and k < i: # k in left
             to_append = right
-        else if i <= k and k < hi:
+        elif i <= k and k < hi:
             to_append = left
         if to_append:
             results.append(to_append)
@@ -77,22 +77,40 @@ def proof(l, n, k):
     l.sort() # sorts by first value of pair
     two_lists = [list(t) for t in zip(*l)]
     if k not in two_lists[0]:
+        print k
+        print two_lists[0]
         return None
     results = []
     root = helper(n, two_lists[0], 0, len(l), 0, two_lists[1], results, k)
     return results
 
 def root_from_proof(k, v, n, proof_output):
+    output = v
+    k1 = k
+    for i in proof_output:
+        if k / 2 == 0:
+            output = Hash(v + i)
+        else:
+            output = Hash(i + v)
+        k /= 2 # this will probably break in python 3...
+    return output
 
+# this doesn't belong in this library
 def check_proof_against_root(k, v, n, proof_output, root):
     new_root = root_from_proof(k, v, n, proof_output)
     return new_root == root
+
+# neither does this
+def audit_smt(l, n, k, v, prev_root):
+    proof_output = proof(l, n, k)
+    return check_proof_against_root(k, v, n, proof_output, prev_root)
 
 usernames = ["ohemorange", "joebonneau", "edfelten", "bcrypt"]
 hashed_usernames = [hex_to_int(Hash(user)) for user in usernames]
 pks = [str(i) for i in [10,3,6,100]]
 l = zip(hashed_usernames, pks)
-print construct(256, l)
+result = construct(256, l)
+print audit_smt(l, 256, hex_to_int(Hash('ohemorange')), 10, result)
 
 hashes_of_usernames = [100,3,2323123123,54345]
 fake_pks = [101,31,23231231231,543451]
