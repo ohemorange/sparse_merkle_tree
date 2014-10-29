@@ -140,8 +140,8 @@ def test_proof():
     l = zip(keys, vals)
     proof_output = proof(l, 3, 3)
     assert proof_output[0] == HStarEmpty(0)
-    assert proof_output[1] == Hash(zero+Hash("b"))
-    assert proof_output[2] == Hash(one+Hash(zero+Hash("c")))
+    assert proof_output[1] == Hash(HStarEmpty(0)+Hash("b"))
+    assert proof_output[2] == Hash(HStarEmpty(1)+Hash(HStarEmpty(0)+Hash("c")))
 
 # not passing
 def test_root_from_proof():
@@ -170,6 +170,8 @@ def test_construct():
     correct_root = Hash(left + right)
     assert correct_root == construct(3, l)
 
+test_construct()
+test_proof()
 test_root_from_proof()
 
 '''
