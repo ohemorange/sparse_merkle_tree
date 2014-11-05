@@ -65,6 +65,8 @@ def helper(n, l, lo, hi, offset, v, results=None, k=None):
 # indices must be numbers, values can be any argument of str()
 # n is the depth of the tree (= number of possible bits in the key)
 def construct(n, l):
+    if len(l) == 0:
+        return ""
     l.sort() # sorts by first value of pair
     two_lists = [list(t) for t in zip(*l)]
     return helper(n, two_lists[0], 0, len(l), 0, two_lists[1])
@@ -80,6 +82,8 @@ def temp_index_of(l, k):
 # currently returns all 256 hashes. some of these will be the hash of
 # empty subtrees - this can be optimized for storage/transmission
 def proof(l, n, k):
+    if len(l) == 0:
+        return ""
     l.sort() # sorts by first value of pair
     two_lists = [list(t) for t in zip(*l)]
     if k not in two_lists[0]:
