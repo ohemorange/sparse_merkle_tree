@@ -3,7 +3,7 @@
 import smt
 import datetime
 
-RUN_TESTS = True
+RUN_TESTS = True # hasn't been run yet
 
 USERNAME = "USERNAME"
 HASH_OF_USERNAME = "HASH_OF_USERNAME" # hex string
@@ -18,7 +18,7 @@ EPOCH_SIZE = 16 # how many changes we make before signing and publishing
 
 # TODO integrate with some offline store, git might actually
 # work nicely.
-data = []
+data = {}
 
 data_changelog = []
 
@@ -36,19 +36,56 @@ def register_change(user, change_type):
                            TIMESTAMP: datetime.datetime.now(),
                            CHANGE_TYPE: change_type})
 
+# the following methods are the only ones to access the data global
+# except for init. and tests.
 def add_username_to_data(user, hex_pk):
     # TODO save offline
     d = {USERNAME: user,
          HASH_OF_USERNAME: smt.Hash(user),
          PK_AS_INT: smt.hex_to_int(hex_pk)}
-    data.append(d)
+    data[user] = d
 
+# TODO this is definitely not the best way to remove an item from a dict.
 def remove_username_from_data(user):
     # TODO save offline
-    item_dict = filter(lambda item: item[USERNAME] == user, data)
-    assert len(item_dict) == 1
-    item = item_dict[0]
-    data.remove(item)
+    global data
+    item_dict = filter(lambda key: key != user, data)
+    data = item_dict
+
+# changes data from the format here into the way the smt
+# library wants it
+# TODO: cache. probably.
+def list_for_smt_lib():
+    l = [(smt.hex_to_int(item[HASH_OF_USERNAME]), item[PK_AS_INT]) \
+         for item in data.values()]
+    return l
+
+# we've cached this, just access it here
+def key_for_username(username):
+    return data[username][HASH_OF_USERNAME]
+
+def clear_globals():
+    global data, data_changelog, roots_log, published_log, signed_head
+    data = {}
+    data_changelog = []
+    roots_log = []
+    published_log = []
+    signed_head = ""
+
+def fill_globals_with_test_values():
+    global data, data_changelog, roots_log, published_log, signed_head
+    data = {
+        "ohemorange":{USERNAME: "ohemorange", PK_AS_INT: 10},
+        "joebonneau":{USERNAME: "joebonneau", PK_AS_INT: 3},
+        "edfelten":{USERNAME: "edfelten", PK_AS_INT: 6},
+        "bcrypt":{USERNAME: "bcrypt", PK_AS_INT: 100},
+        }
+    for k in data:
+        data[k][HASH_OF_USERNAME] = smt.Hash(k)
+    data_changelog = []
+    roots_log = []
+    published_log = []
+    signed_head = "abcdef"
 
 def sign(string):
     # TODO lol
@@ -73,8 +110,7 @@ def append_root(root):
 
 # after any change to the tree, calculate and save the new root
 def log_new_tree():
-    l = [(smt.hex_to_int(item[HASH_OF_USERNAME]), item[PK_AS_INT]) \
-         for item in data]
+    l = list_for_smt_lib()
     new_root = smt.construct(TREE_SIZE, l)
     append_root(new_root)
 
@@ -100,19 +136,36 @@ def update_pk(username, pk_as_hex):
     register_username(username, pk_as_hex)
 
 # the user sends in a username and a timestamp, and wants
-# something since that time
-def audit_username(username):
+# the items in her path that have changed since that time.
+def consistency_proof(username):
     # TODO
 
     # TODO send back to user
-    return
+    return   
+
+# return an inclusion proof for the list as it currently exists.
+# the root may not have been published yet #TODO
+def request_inclusion_proof(username):
+    l = list_for_smt_lib()
+    k = key_for_username()
+    return smt.proof(l, TREE_SIZE, k)
+
+# these two methods show how to use the smt library
+def check_proof_against_root(k, v, n, proof_output, root):
+    new_root = root_from_proof(k, v, n, proof_output)
+    return new_root == root
+
+def audit_smt(l, n, k, v, prev_root):
+    proof_output = proof(l, n, k)
+    return check_proof_against_root(k, v, n, proof_output, prev_root)
 
 def init():
     # load data
     # TODO wait for incoming requests
     # I need to look how to do this in python
     # also a switch...
-    global data, data_changelog, roots_log, published_log, signed_head
+    clear_globals()
+
     data = []
     data_changelog = []
     roots_log = []
@@ -130,15 +183,6 @@ def init():
     elif request.type == "AUDIT_USERNAME":
         audit_username(username)
     '''
-
-# these two methods show how to use the smt library
-def check_proof_against_root(k, v, n, proof_output, root):
-    new_root = root_from_proof(k, v, n, proof_output)
-    return new_root == root
-
-def audit_smt(l, n, k, v, prev_root):
-    proof_output = proof(l, n, k)
-    return check_proof_against_root(k, v, n, proof_output, prev_root)
 
 def list_example():
     usernames = ["ohemorange", "joebonneau", "edfelten", "bcrypt"]
@@ -201,11 +245,7 @@ def test_publish_log():
 # just making sure nothing crashes here.
 def test_start_from_clean():
     global data, data_changelog, roots_log, published_log, signed_head
-    data = []
-    data_changelog = []
-    roots_log = []
-    published_log = []
-    signed_head = []
+    clear_globals()
     username = "sofiathetrainterror"
     pk_as_hex = "bad"
     register_username(username, pk_as_hex)
@@ -213,20 +253,7 @@ def test_start_from_clean():
     remove_username(username)
 
 def run_tests():
-    global data, data_changelog, roots_log, published_log, signed_head
-    data = [
-        {USERNAME: "ohemorange", PK_AS_INT: 10},
-        {USERNAME: "joebonneau", PK_AS_INT: 3},
-        {USERNAME: "edfelten", PK_AS_INT: 6},
-        {USERNAME: "bcrypt", PK_AS_INT: 100},
-        ]
-    for item in data:
-        item[HASH_OF_USERNAME] = smt.Hash(item[USERNAME])
-    data_changelog = []
-    roots_log = []
-    published_log = []
-    signed_head = "abcdef"
-
+    fill_globals_with_test_values()
     # don't change this order
     test_register()
     test_remove()
